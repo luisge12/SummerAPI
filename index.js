@@ -119,6 +119,7 @@ app.post('/register', async (req, res) => {
 });
 
 app.post('/login', async (req, res) => {
+  console.log('Login request body:', req.body);
   const { email, password } = req.body;
   try {
     const result = await userConnect.loginUser(email, password);
@@ -285,14 +286,15 @@ app.post('/user-reservations', async (req, res) => {
 });
 
 app.get('/get-all-reservations', async (req, res) => {
-  console.log('get all reservations backend')
-  try {
+  res.json({ message: 'Endpoint en construcción' });
+  /*try {
     const result = await reserv.getAllReservations();
     res.json(result);
   } catch (error) {
     console.log(error);
     res.status(500).json({ error: 'Hubo un error en el servidor.' });
-  };
+  }
+  };*/
 });
 
 app.listen(PORT, HOST, () => {
