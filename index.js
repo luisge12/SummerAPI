@@ -47,6 +47,8 @@ app.use((req, res, next) => {
 });
 
 app.get('/', (req, res) => {
+  res.send('Hello World!');
+  /*
   const token = req.cookies['access_token'];
   if (token) {
     try {
@@ -85,7 +87,7 @@ app.get('/', (req, res) => {
         message: 'No se recibió access_token'
       }
     });
-  }
+  }*/
 });
 
 app.post('/register', async (req, res) => {
@@ -286,15 +288,14 @@ app.post('/user-reservations', async (req, res) => {
 });
 
 app.get('/get-all-reservations', async (req, res) => {
-  res.json({ message: 'Endpoint en construcción' });
-  /*try {
+  console.log('get all reservations backend')
+  try {
     const result = await reserv.getAllReservations();
     res.json(result);
   } catch (error) {
     console.log(error);
     res.status(500).json({ error: 'Hubo un error en el servidor.' });
-  }
-  };*/
+  };
 });
 
 app.listen(PORT, HOST, () => {
