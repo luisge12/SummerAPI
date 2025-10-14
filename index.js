@@ -47,8 +47,6 @@ app.use((req, res, next) => {
 });
 
 app.get('/', (req, res) => {
-  res.send('Hello World!');
-  /*
   const token = req.cookies['access_token'];
   if (token) {
     try {
@@ -87,7 +85,7 @@ app.get('/', (req, res) => {
         message: 'No se recibió access_token'
       }
     });
-  }*/
+  }
 });
 
 app.post('/register', async (req, res) => {
