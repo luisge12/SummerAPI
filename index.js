@@ -47,7 +47,8 @@ app.use((req, res, next) => {
 });
 
 app.get('/', (req, res) => {
-  const token = req.cookies['access_token'];
+  res.send('Hello World! Server is running.');
+  /*const token = req.cookies['access_token'];
   if (token) {
     try {
       const data = jwt.verify(token, JWT_SECRET);
@@ -85,7 +86,7 @@ app.get('/', (req, res) => {
         message: 'No se recibió access_token'
       }
     });
-  }
+  }*/
 });
 
 app.post('/register', async (req, res) => {
