@@ -15,7 +15,7 @@ const reserv = new Reservation();
 
 const app = express();
 app.use(cors({
-  origin: 'http://localhost:5173', // Cambia al puerto de tu frontend si es diferente
+  origin: true, // Cambia al puerto de tu frontend si es diferente
   credentials: true
 }));
 app.use(express.json());
@@ -47,8 +47,7 @@ app.use((req, res, next) => {
 });
 
 app.get('/', (req, res) => {
-  res.send('Hello World! Server is running.');
-  /*const token = req.cookies['access_token'];
+  const token = req.cookies['access_token'];
   if (token) {
     try {
       const data = jwt.verify(token, JWT_SECRET);
@@ -86,7 +85,7 @@ app.get('/', (req, res) => {
         message: 'No se recibió access_token'
       }
     });
-  }*/
+  }
 });
 
 app.post('/register', async (req, res) => {
@@ -295,6 +294,53 @@ app.get('/get-all-reservations', async (req, res) => {
     console.log(error);
     res.status(500).json({ error: 'Hubo un error en el servidor.' });
   };
+});
+
+// Delete reservation by id
+app.delete('/reservations/:id', async (req, res) => {
+  const { id } = req.params;
+  if (!id) return res.status(400).json({ error: 'Reservation id is required' });
+
+  try {
+    const deleted = await reserv.deleteReservation(id);
+    if (!deleted) return res.status(404).json({ error: 'Reservation not found' });
+    return res.json({ deleted });
+  } catch (error) {
+    console.error('Delete reservation error:', error);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+//delete 100 points to user
+app.post('/delete_points/:email', async (req, res) => {
+  const { email } = req.params;
+  try {
+    const result = await userConnect.deleteUserPoints(email, 100);
+    if (result) {
+      res.json({ message: 'Se eliminaron 100 puntos del usuario.' });
+    } else {
+      res.status(404).json({ error: 'Usuario no encontrado.' });
+    }
+  } catch (error) {
+    console.error('Delete points error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+//increase points to user
+app.post('/increase_points/:email', async (req, res) => {
+  const { email, points } = req.params;
+  try {
+    const result = await userConnect.updateUserPoints(email, points);
+    if (result) {
+      res.json({ message: `Se aumentaron ${points} puntos al usuario.` });
+    } else {
+      res.status(404).json({ error: 'Usuario no encontrado.' });
+    }
+  } catch (error) {
+    console.error('Increase points error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
 });
 
 app.listen(PORT, HOST, () => {

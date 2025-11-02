@@ -31,21 +31,21 @@ export default class Reservation {
 
     async getReservationsByUser(user_email){
         const query = `SELECT * FROM court_reservation WHERE user_email = $1`
-        const value = [user_email]
+        const values = [user_email]
         try {
-            const res = await this.pool.query(query, value);
+            const res = await this.pool.query(query, values);
             return res.rows;
         } catch (error) {
-            console.error('Error creating reservation:', error);
+            console.error('Error fetching reservations by user:', error);
             throw error;
         }
     }
 
     async getHoursByReservationDay(day, court_id){
         const query = `SELECT hour FROM court_reservation WHERE day = $1 AND court_id = $2`;
-        const value = [day, court_id];
+        const values = [day, court_id];
         try {
-            const res = await this.pool.query(query, value);
+            const res = await this.pool.query(query, values);
             return res.rows;
         } catch (error) {
             console.error('Error fetching reservations by day:', error);
@@ -60,6 +60,27 @@ export default class Reservation {
             return res.rows;
         } catch (error) {
             console.error('Error fetching all reservations:', error);
+            throw error;
+        }
+    } 
+
+    /**
+     * Delete a reservation by id and return the deleted row (or null if not found)
+     * @param {string} reservation_id - UUID of the reservation to delete
+     */
+    async deleteReservation(reservation_id){
+        if (!reservation_id || typeof reservation_id !== 'string') {
+            throw new Error('reservation_id (string) is required');
+        }
+
+        const query = `DELETE FROM court_reservation WHERE id = $1 RETURNING *`;
+        const values = [reservation_id];
+        try {
+            const result = await this.pool.query(query, values);
+            if (result.rowCount === 0) return null;
+            return result.rows[0];
+        } catch (error) {
+            console.error('Error deleting reservation:', error);
             throw error;
         }
     }
