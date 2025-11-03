@@ -85,6 +85,23 @@ export default class Reservation {
         }
     }
 
+    async changeReservationStatus(reservation_id, newStatus) {
+        if (!reservation_id || typeof reservation_id !== 'string') {
+            throw new Error('reservation_id (string) is required');
+        }
+
+        const query = `UPDATE court_reservation SET status = $1 WHERE id = $2 RETURNING *`;
+        const values = [newStatus, reservation_id];
+        try {
+            const result = await this.pool.query(query, values);
+            if (result.rowCount === 0) return null;
+            return result.rows[0];
+        } catch (error) {
+            console.error('Error changing reservation status:', error);
+            throw error;
+        }
+    }
+
 }
 
 

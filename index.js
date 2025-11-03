@@ -93,7 +93,7 @@ app.post('/register', async (req, res) => {
     try {
         // La ejecución espera a que createUser termine
       const newUser = await userConnect.createUser(user); 
-      console.log('New user created:', newUser);
+      //console.log('New user created:', newUser);
 
       // Genera el token JWT con la información del usuario
       const token = jwt.sign(
@@ -119,7 +119,7 @@ app.post('/register', async (req, res) => {
 });
 
 app.post('/login', async (req, res) => {
-  console.log('Login request body:', req.body);
+  //console.log('Login request body:', req.body);
   const { email, password } = req.body;
   try {
     const result = await userConnect.loginUser(email, password);
@@ -286,7 +286,7 @@ app.post('/user-reservations', async (req, res) => {
 });
 
 app.get('/get-all-reservations', async (req, res) => {
-  console.log('get all reservations backend')
+  //console.log('get all reservations backend')
   try {
     const result = await reserv.getAllReservations();
     res.json(result);
@@ -339,6 +339,23 @@ app.post('/increase_points/:email', async (req, res) => {
     }
   } catch (error) {
     console.error('Increase points error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+//cambiar estado de reserva
+app.post('/change_reservation_status/:id', async (req, res) => {
+  const { id } = req.params;
+  const { newStatus } = req.body; // Espera que el nuevo estado venga en el cuerpo de la solicitud
+  try {
+    const result = await reserv.changeReservationStatus(id, newStatus);
+    if (result) {
+      res.json({ message: 'Estado de la reserva actualizado correctamente.' });
+    } else {
+      res.status(404).json({ error: 'Reserva no encontrada.' });
+    }
+  } catch (error) {
+    console.error('Change reservation status error:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
