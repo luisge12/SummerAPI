@@ -16,8 +16,8 @@ export class courtConnections {
     }
 
     async createCourt(court) {
-        const id = uuidv4();
-        console.log(id);
+        //const id = uuidv4();
+        //console.log(id);
 
         const query = 'INSERT INTO court (id, num, sport, description, players_num, price_per_hour) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *';
         const values = [id, court.num || 1, court.sport, court.description, court.players_num, court.price_per_hour]

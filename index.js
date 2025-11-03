@@ -216,7 +216,7 @@ app.post('/create_court', async (req,res) => {
 
 app.post('/create_reservation', async (req, res) => {
     const reservation = req.body;
-    console.log('reservation backend:', reservation);
+    //console.log('reservation backend:', reservation);
     try {
       const result = await reserv.createReservation(reservation);
       res.json(result);
@@ -317,7 +317,34 @@ app.post('/delete_points/:email', async (req, res) => {
   try {
     const result = await userConnect.deleteUserPoints(email, 100);
     if (result) {
-      res.json({ message: 'Se eliminaron 100 puntos del usuario.' });
+      // Actualiza la cookie JWT con los nuevos puntos
+      const token = jwt.sign({
+        email: result.email,
+        name: result.name,
+        lastname: result.lastname,
+        phone: result.phone,
+        role: result.role,
+        points: result.points
+      }, JWT_SECRET, { expiresIn: '1h' });
+
+      res.cookie('access_token', token, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: false,
+        maxAge: 60 * 60 * 1000
+      });
+
+      // También actualizamos la sesión en memoria para esta petición
+      req.session.user = {
+        email: result.email,
+        name: result.name,
+        lastname: result.lastname,
+        phone: result.phone,
+        role: result.role,
+        points: result.points
+      };
+
+      res.json({ message: 'Se eliminaron 100 puntos del usuario.', user: result });
     } else {
       res.status(404).json({ error: 'Usuario no encontrado.' });
     }
@@ -328,18 +355,57 @@ app.post('/delete_points/:email', async (req, res) => {
 });
 
 //increase points to user
-app.post('/increase_points/:email', async (req, res) => {
-  const { email, points } = req.params;
+app.post('/increase_points', async (req, res) => {
+  // Espera { email: string, points: number } en el body
+  const { email, points } = req.body;
+
+  if (!email || typeof email !== 'string') {
+    return res.status(400).json({ error: 'Email is required and must be a string.' });
+  }
+
+  const parsedPoints = Number(points);
+  if (Number.isNaN(parsedPoints)) {
+    return res.status(400).json({ error: 'Points must be a valid number.' });
+  }
+
   try {
-    const result = await userConnect.updateUserPoints(email, points);
+    const result = await userConnect.updateUserPoints(email, parsedPoints);
     if (result) {
-      res.json({ message: `Se aumentaron ${points} puntos al usuario.` });
+      // Actualiza la cookie JWT con los nuevos puntos
+      const token = jwt.sign({
+        email: result.email,
+        name: result.name,
+        lastname: result.lastname,
+        phone: result.phone,
+        role: result.role,
+        points: result.points
+      }, JWT_SECRET, { expiresIn: '1h' });
+
+      res.cookie('access_token', token, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: false,
+        maxAge: 60 * 60 * 1000
+      });
+
+      // Actualiza la sesión en memoria para la petición actual
+      req.session.user = {
+        email: result.email,
+        name: result.name,
+        lastname: result.lastname,
+        phone: result.phone,
+        role: result.role,
+        points: result.points
+      };
+
+      // Devuelve el usuario actualizado para que el frontend pueda sincronizar estado
+      return res.json({ message: `Se aumentaron ${parsedPoints} puntos al usuario.`, user: result });
     } else {
-      res.status(404).json({ error: 'Usuario no encontrado.' });
+      return res.status(404).json({ error: 'Usuario no encontrado.' });
     }
   } catch (error) {
     console.error('Increase points error:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 

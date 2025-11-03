@@ -88,6 +88,19 @@ export class UserConnections {
             throw err;
         }
     }
+
+    async updateUserPoints(email, points) {
+        const query = 'UPDATE users SET points = points + $1 WHERE email = $2 RETURNING *';
+        const values = [points, email];
+        try {
+            const res = await this.pool.query(query, values);
+            return res.rows[0];
+        } catch (err) {
+            console.error('Error updating user points:', err);
+            throw err;
+        }
+    }
+
 }
 
 /* //CODIGO PARA PROBAR LAS CONEXIONES
