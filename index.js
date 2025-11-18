@@ -15,7 +15,7 @@ const reserv = new Reservation();
 
 const app = express();
 app.use(cors({
-  origin: 'http://localhost:5173', // Cambia al puerto de tu frontend si es diferente
+  origin: true, // Cambia al puerto de tu frontend si es diferente
   credentials: true
 }));
 app.use(express.json());
@@ -47,8 +47,7 @@ app.use((req, res, next) => {
 });
 
 app.get('/', (req, res) => {
-  res.send('Hello World! Server is running.');
-  /*const token = req.cookies['access_token'];
+  const token = req.cookies['access_token'];
   if (token) {
     try {
       const data = jwt.verify(token, JWT_SECRET);
@@ -86,7 +85,7 @@ app.get('/', (req, res) => {
         message: 'No se recibió access_token'
       }
     });
-  }*/
+  }
 });
 
 app.post('/register', async (req, res) => {
@@ -94,7 +93,7 @@ app.post('/register', async (req, res) => {
     try {
         // La ejecución espera a que createUser termine
       const newUser = await userConnect.createUser(user); 
-      console.log('New user created:', newUser);
+      //console.log('New user created:', newUser);
 
       // Genera el token JWT con la información del usuario
       const token = jwt.sign(
@@ -120,7 +119,7 @@ app.post('/register', async (req, res) => {
 });
 
 app.post('/login', async (req, res) => {
-  console.log('Login request body:', req.body);
+  //console.log('Login request body:', req.body);
   const { email, password } = req.body;
   try {
     const result = await userConnect.loginUser(email, password);
@@ -261,6 +260,40 @@ app.post('/get_courts_by_sport', async (req,res) => {
   }
 });
 
+// Update price per hour for all courts of a given sport
+app.post('/update_court_price_by_sport', async (req, res) => {
+  const { sport, newPrice } = req.body;
+
+  if (!sport || typeof sport !== 'string') {
+    return res.status(400).json({ error: 'sport is required and must be a string' });
+  }
+
+  const price = Number(newPrice);
+  if (Number.isNaN(price)) {
+    return res.status(400).json({ error: 'newPrice must be a valid number' });
+  }
+
+  try {
+    const updatedCourts = await courtConnect.updateCourtPriceBySport(sport, price);
+    return res.json({ message: `Updated ${updatedCourts.length} courts`, courts: updatedCourts });
+  } catch (error) {
+    console.error('Update court price error:', error);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Get list of available sports (unique)
+app.get('/get_sports', async (req, res) => {
+  try {
+    const courts = await courtConnect.getCourts();
+    const sports = Array.from(new Set(courts.map(c => c.sport))).filter(Boolean);
+    return res.json(sports);
+  } catch (error) {
+    console.error('Get sports error:', error);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 app.post('/get_hours', async (req,res) => {
   //console.log('get hours backend')
   const day = req.body.day;
@@ -287,7 +320,7 @@ app.post('/user-reservations', async (req, res) => {
 });
 
 app.get('/get-all-reservations', async (req, res) => {
-  console.log('get all reservations backend')
+  //console.log('get all reservations backend')
   try {
     const result = await reserv.getAllReservations();
     res.json(result);
@@ -295,6 +328,136 @@ app.get('/get-all-reservations', async (req, res) => {
     console.log(error);
     res.status(500).json({ error: 'Hubo un error en el servidor.' });
   };
+});
+
+// Delete reservation by id
+app.delete('/reservations/:id', async (req, res) => {
+  const { id } = req.params;
+  if (!id) return res.status(400).json({ error: 'Reservation id is required' });
+
+  try {
+    const deleted = await reserv.deleteReservation(id);
+    if (!deleted) return res.status(404).json({ error: 'Reservation not found' });
+    return res.json({ deleted });
+  } catch (error) {
+    console.error('Delete reservation error:', error);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+//delete 100 points to user
+app.post('/delete_points/:email', async (req, res) => {
+  const { email } = req.params;
+  try {
+    const result = await userConnect.deleteUserPoints(email, 100);
+    if (result) {
+      // Actualiza la cookie JWT con los nuevos puntos
+      const token = jwt.sign({
+        email: result.email,
+        name: result.name,
+        lastname: result.lastname,
+        phone: result.phone,
+        role: result.role,
+        points: result.points
+      }, JWT_SECRET, { expiresIn: '1h' });
+
+      res.cookie('access_token', token, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: false,
+        maxAge: 60 * 60 * 1000
+      });
+
+      // También actualizamos la sesión en memoria para esta petición
+      req.session.user = {
+        email: result.email,
+        name: result.name,
+        lastname: result.lastname,
+        phone: result.phone,
+        role: result.role,
+        points: result.points
+      };
+
+      res.json({ message: 'Se eliminaron 100 puntos del usuario.', user: result });
+    } else {
+      res.status(404).json({ error: 'Usuario no encontrado.' });
+    }
+  } catch (error) {
+    console.error('Delete points error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+//increase points to user
+app.post('/increase_points', async (req, res) => {
+  // Espera { email: string, points: number } en el body
+  const { email, points } = req.body;
+
+  if (!email || typeof email !== 'string') {
+    return res.status(400).json({ error: 'Email is required and must be a string.' });
+  }
+
+  const parsedPoints = Number(points);
+  if (Number.isNaN(parsedPoints)) {
+    return res.status(400).json({ error: 'Points must be a valid number.' });
+  }
+
+  try {
+    const result = await userConnect.updateUserPoints(email, parsedPoints);
+    if (result) {
+      // Actualiza la cookie JWT con los nuevos puntos
+      const token = jwt.sign({
+        email: result.email,
+        name: result.name,
+        lastname: result.lastname,
+        phone: result.phone,
+        role: result.role,
+        points: result.points
+      }, JWT_SECRET, { expiresIn: '1h' });
+
+      res.cookie('access_token', token, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: false,
+        maxAge: 60 * 60 * 1000
+      });
+
+      // Actualiza la sesión en memoria para la petición actual
+      req.session.user = {
+        email: result.email,
+        name: result.name,
+        lastname: result.lastname,
+        phone: result.phone,
+        role: result.role,
+        points: result.points
+      };
+
+      // Devuelve el usuario actualizado para que el frontend pueda sincronizar estado
+      return res.json({ message: `Se aumentaron ${parsedPoints} puntos al usuario.`, user: result });
+    } else {
+      return res.status(404).json({ error: 'Usuario no encontrado.' });
+    }
+  } catch (error) {
+    console.error('Increase points error:', error);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+//cambiar estado de reserva
+app.post('/change_reservation_status/:id', async (req, res) => {
+  const { id } = req.params;
+  const { newStatus } = req.body; // Espera que el nuevo estado venga en el cuerpo de la solicitud
+  try {
+    const result = await reserv.changeReservationStatus(id, newStatus);
+    if (result) {
+      res.json({ message: 'Estado de la reserva actualizado correctamente.' });
+    } else {
+      res.status(404).json({ error: 'Reserva no encontrada.' });
+    }
+  } catch (error) {
+    console.error('Change reservation status error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
 });
 
 app.listen(PORT, HOST, () => {

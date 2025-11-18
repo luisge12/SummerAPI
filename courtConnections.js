@@ -16,8 +16,8 @@ export class courtConnections {
     }
 
     async createCourt(court) {
-        const id = uuidv4();
-        console.log(id);
+        //const id = uuidv4();
+        //console.log(id);
 
         const query = 'INSERT INTO court (id, num, sport, description, players_num, price_per_hour) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *';
         const values = [id, court.num || 1, court.sport, court.description, court.players_num, court.price_per_hour]
@@ -88,6 +88,18 @@ export class courtConnections {
         }
     }
 
+    //change the prices of a court by sport
+    async updateCourtPriceBySport(sport, newPrice) {
+        const query = 'UPDATE court SET price_per_hour = $1 WHERE sport = $2 RETURNING *';
+        const values = [newPrice, sport];
+        try {
+            const res = await this.pool.query(query, values);
+            return res.rows;
+        } catch (error) {
+            console.error('Error updating court prices by sport:', error);
+            throw error;
+        }
+    }
 }
 
 
