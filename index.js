@@ -216,7 +216,7 @@ app.post('/create_court', async (req,res) => {
 
 app.post('/create_reservation', async (req, res) => {
     const reservation = req.body;
-    //console.log('reservation backend:', reservation);
+    console.log('reservation backend:', reservation);
     try {
       const result = await reserv.createReservation(reservation);
       res.json(result);
@@ -257,6 +257,40 @@ app.post('/get_courts_by_sport', async (req,res) => {
   } catch(error) {
     console.log(error);
     res.status(500).json({ error: 'Hubo un error en el servidor.' }); 
+  }
+});
+
+// Update price per hour for all courts of a given sport
+app.post('/update_court_price_by_sport', async (req, res) => {
+  const { sport, newPrice } = req.body;
+
+  if (!sport || typeof sport !== 'string') {
+    return res.status(400).json({ error: 'sport is required and must be a string' });
+  }
+
+  const price = Number(newPrice);
+  if (Number.isNaN(price)) {
+    return res.status(400).json({ error: 'newPrice must be a valid number' });
+  }
+
+  try {
+    const updatedCourts = await courtConnect.updateCourtPriceBySport(sport, price);
+    return res.json({ message: `Updated ${updatedCourts.length} courts`, courts: updatedCourts });
+  } catch (error) {
+    console.error('Update court price error:', error);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Get list of available sports (unique)
+app.get('/get_sports', async (req, res) => {
+  try {
+    const courts = await courtConnect.getCourts();
+    const sports = Array.from(new Set(courts.map(c => c.sport))).filter(Boolean);
+    return res.json(sports);
+  } catch (error) {
+    console.error('Get sports error:', error);
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 

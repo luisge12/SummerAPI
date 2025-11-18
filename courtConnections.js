@@ -88,6 +88,18 @@ export class courtConnections {
         }
     }
 
+    //change the prices of a court by sport
+    async updateCourtPriceBySport(sport, newPrice) {
+        const query = 'UPDATE court SET price_per_hour = $1 WHERE sport = $2 RETURNING *';
+        const values = [newPrice, sport];
+        try {
+            const res = await this.pool.query(query, values);
+            return res.rows;
+        } catch (error) {
+            console.error('Error updating court prices by sport:', error);
+            throw error;
+        }
+    }
 }
 
 
