@@ -18,8 +18,8 @@ export default class Reservation {
 
     async createReservation(data) {
         const id = uuidv4();
-        const query = 'INSERT INTO court_reservation(id, court_id, user_email, total_time, total_price, hour, day, status) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *';
-        const values = [id, data.court_id, data.user_email, data.total_time, data.total_price, data.hour, data.day, "pendiente"];
+        const query = 'INSERT INTO court_reservation(id, court_id, user_email, total_time, total_price, hour, day, status, name, lastname) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *';
+        const values = [id, data.court_id, data.user_email, data.total_time, data.total_price, data.hour, data.day, "pendiente", data.name, data.lastname];
         try {
             const res = await this.pool.query(query, values);
             return res.rows[0];
