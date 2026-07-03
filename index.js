@@ -1,4 +1,4 @@
-import express/* { response } */ from 'express';
+import express from 'express';
 import { PORT, HOST, JWT_SECRET } from './config.js';
 import { UserConnections } from './userConnections.js'; 
 import { courtConnections } from './courtConnections.js'
@@ -190,14 +190,14 @@ app.post('/get_user_by_email', async (req, res) => {
   const { email } = req.body;
   try {
     const result = await userConnect.getUserByEmail(email);
-    if (result) {
-      res.json(result); // Devuelve el objeto completo del usuario
-    } else {
-      res.status(404).json({ error: 'Usuario no encontrado' });
-    }
+    res.json(result); // Devuelve el objeto completo del usuario
   } catch (error) {
-    console.log(error);
-    res.status(500).json({ error: 'Hubo un error en el servidor.' });
+    if (error.message === 'User not found') {
+      res.status(404).json({ error: 'Usuario no encontrado' });
+    } else {
+      console.error('Error fetching user by email:', error);
+      res.status(500).json({ error: 'Hubo un error en el servidor.' });
+    }
   }
 });
 
@@ -351,33 +351,6 @@ app.post('/delete_points/:email', async (req, res) => {
   try {
     const result = await userConnect.deleteUserPoints(email, 100);
     if (result) {
-      // Actualiza la cookie JWT con los nuevos puntos
-      const token = jwt.sign({
-        email: result.email,
-        name: result.name,
-        lastname: result.lastname,
-        phone: result.phone,
-        role: result.role,
-        points: result.points
-      }, JWT_SECRET, { expiresIn: '1h' });
-
-      res.cookie('access_token', token, {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: false,
-        maxAge: 60 * 60 * 1000
-      });
-
-      // También actualizamos la sesión en memoria para esta petición
-      req.session.user = {
-        email: result.email,
-        name: result.name,
-        lastname: result.lastname,
-        phone: result.phone,
-        role: result.role,
-        points: result.points
-      };
-
       res.json({ message: 'Se eliminaron 100 puntos del usuario.', user: result });
     } else {
       res.status(404).json({ error: 'Usuario no encontrado.' });
@@ -390,7 +363,6 @@ app.post('/delete_points/:email', async (req, res) => {
 
 //increase points to user
 app.post('/increase_points', async (req, res) => {
-  // Espera { email: string, points: number } en el body
   const { email, points } = req.body;
 
   if (!email || typeof email !== 'string') {
@@ -405,34 +377,6 @@ app.post('/increase_points', async (req, res) => {
   try {
     const result = await userConnect.updateUserPoints(email, parsedPoints);
     if (result) {
-      // Actualiza la cookie JWT con los nuevos puntos
-      const token = jwt.sign({
-        email: result.email,
-        name: result.name,
-        lastname: result.lastname,
-        phone: result.phone,
-        role: result.role,
-        points: result.points
-      }, JWT_SECRET, { expiresIn: '1h' });
-
-      res.cookie('access_token', token, {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: false,
-        maxAge: 60 * 60 * 1000
-      });
-
-      // Actualiza la sesión en memoria para la petición actual
-      req.session.user = {
-        email: result.email,
-        name: result.name,
-        lastname: result.lastname,
-        phone: result.phone,
-        role: result.role,
-        points: result.points
-      };
-
-      // Devuelve el usuario actualizado para que el frontend pueda sincronizar estado
       return res.json({ message: `Se aumentaron ${parsedPoints} puntos al usuario.`, user: result });
     } else {
       return res.status(404).json({ error: 'Usuario no encontrado.' });
@@ -457,6 +401,26 @@ app.post('/change_reservation_status/:id', async (req, res) => {
   } catch (error) {
     console.error('Change reservation status error:', error);
     res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Restablecer contraseña
+app.post('/reset-password', async (req, res) => {
+  const { email, newPassword } = req.body;
+  if (!email || !newPassword) {
+    return res.status(400).json({ error: 'El email y la nueva contraseña son requeridos.' });
+  }
+  try {
+    const user = await userConnect.getUserByEmail(email);
+    await userConnect.updateUserPassword(email, newPassword);
+    res.json({ message: 'Contraseña actualizada con éxito' });
+  } catch (error) {
+    if (error.message === 'User not found') {
+      res.status(404).json({ error: 'Usuario no encontrado' });
+    } else {
+      console.error('Error updating password:', error);
+      res.status(500).json({ error: 'Hubo un error en el servidor.' });
+    }
   }
 });
 

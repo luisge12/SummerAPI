@@ -101,6 +101,19 @@ export class UserConnections {
         }
     }
 
+    async updateUserPassword(email, newPassword) {
+        const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
+        const query = 'UPDATE users SET password = $1 WHERE email = $2 RETURNING *';
+        const values = [hashedPassword, email];
+        try {
+            const res = await this.pool.query(query, values);
+            return res.rows[0];
+        } catch (err) {
+            console.error('Error updating user password:', err);
+            throw err;
+        }
+    }
+
 }
 
 /* //CODIGO PARA PROBAR LAS CONEXIONES
