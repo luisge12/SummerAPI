@@ -222,10 +222,15 @@ app.post('/create_reservation', async (req, res) => {
       res.json(result);
     }
     catch (error) {
-      console.log(error);
+      if (error.status === 409 || error.code === 'SLOT_OCCUPIED') {
+        return res.status(409).json({ error: error.message || 'El horario seleccionado ya no se encuentra disponible.' });
+      }
+      if (error.status === 400) {
+        return res.status(400).json({ error: error.message });
+      }
+      console.error('Error in /create_reservation:', error);
       res.status(500).json({ error: 'Hubo un error en el servidor.' });
     }
-
 });
 
 app.get('/get_courts', async (req,res) => {

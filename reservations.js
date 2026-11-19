@@ -16,16 +16,68 @@ export default class Reservation {
         await this.pool.end();
     }
 
+    async isSlotAvailable(court_id, day, hour, dbClient = null) {
+        const executor = dbClient || this.pool;
+        const normalizedHour = String(hour).slice(0, 5);
+        const query = `
+            SELECT id FROM court_reservation 
+            WHERE court_id = $1 
+              AND day = $2 
+              AND (hour::text LIKE $3 OR hour = $4)
+              AND (status IS NULL OR status != 'cancelada')
+            LIMIT 1
+        `;
+        const values = [court_id, day, `${normalizedHour}%`, hour];
+        const res = await executor.query(query, values);
+        return res.rows.length === 0;
+    }
+
     async createReservation(data) {
-        const id = uuidv4();
-        const query = 'INSERT INTO court_reservation(id, court_id, user_email, total_time, total_price, hour, day, status, name, lastname, phone) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *';
-        const values = [id, data.court_id, data.user_email, data.total_time, data.total_price, data.hour, data.day, "pendiente", data.name, data.lastname, data.phone];
+        if (!data.court_id || !data.day || !data.hour) {
+            const error = new Error('court_id, day y hour son requeridos para realizar una reserva.');
+            error.status = 400;
+            throw error;
+        }
+
+        const client = await this.pool.connect();
         try {
-            const res = await this.pool.query(query, values);
+            await client.query('BEGIN');
+
+            // Bloqueo consultivo a nivel de transacción para la combinación cancha + fecha + hora.
+            // Esto serializa intentos simultáneos para el mismo slot evitando sobreventa por condiciones de carrera.
+            const normalizedHour = String(data.hour).slice(0, 5);
+            const lockKey = `${data.court_id}_${data.day}_${normalizedHour}`;
+            await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [lockKey]);
+
+            // Verificar si el espacio ya fue reservado
+            const isAvailable = await this.isSlotAvailable(data.court_id, data.day, data.hour, client);
+            if (!isAvailable) {
+                const error = new Error('El horario seleccionado ya no se encuentra disponible.');
+                error.status = 409;
+                error.code = 'SLOT_OCCUPIED';
+                throw error;
+            }
+
+            const id = uuidv4();
+            const query = 'INSERT INTO court_reservation(id, court_id, user_email, total_time, total_price, hour, day, status, name, lastname, phone) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *';
+            const values = [id, data.court_id, data.user_email, data.total_time, data.total_price, data.hour, data.day, data.status || "pendiente", data.name, data.lastname, data.phone];
+            
+            const res = await client.query(query, values);
+            await client.query('COMMIT');
             return res.rows[0];
         } catch (error) {
-            console.error('Error creating reservation:', error);
+            await client.query('ROLLBACK').catch(() => {});
+            if (error.code === '23505') { // Violación de índice UNIQUE en PostgreSQL
+                error.status = 409;
+                error.code = 'SLOT_OCCUPIED';
+                error.message = 'El horario seleccionado ya no se encuentra disponible.';
+            }
+            if (error.code !== 'SLOT_OCCUPIED') {
+                console.error('Error creating reservation:', error);
+            }
             throw error;
+        } finally {
+            client.release();
         }
     }
 
@@ -42,7 +94,7 @@ export default class Reservation {
     }
 
     async getHoursByReservationDay(day, court_id){
-        const query = `SELECT hour FROM court_reservation WHERE day = $1 AND court_id = $2`;
+        const query = `SELECT hour FROM court_reservation WHERE day = $1 AND court_id = $2 AND (status IS NULL OR status != 'cancelada')`;
         const values = [day, court_id];
         try {
             const res = await this.pool.query(query, values);
